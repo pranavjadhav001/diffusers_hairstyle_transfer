@@ -70,6 +70,7 @@ else:
         PNDMPipeline,
         RePaintPipeline,
         ScoreSdeVePipeline,
+        RePaintPipelineNew,
     )
     from .schedulers import (
         DDIMInverseScheduler,
@@ -88,6 +89,7 @@ else:
         KDPM2DiscreteScheduler,
         PNDMScheduler,
         RePaintScheduler,
+        RePaintSchedulerNew,
         SchedulerMixin,
         ScoreSdeVeScheduler,
         UnCLIPScheduler,

@@ -13,15 +13,14 @@
 # limitations under the License.
 
 
-import warnings
 from typing import List, Optional, Tuple, Union
-
+import cv2
 import numpy as np
 import PIL
 import torch
 
 from ...models import UNet2DModel
-from ...schedulers import RePaintScheduler
+from ...schedulers import RePaintSchedulerNew
 from ...utils import PIL_INTERPOLATION, logging, randn_tensor
 from ..pipeline_utils import DiffusionPipeline, ImagePipelineOutput
 
@@ -31,18 +30,12 @@ logger = logging.get_logger(__name__)  # pylint: disable=invalid-name
 
 # Copied from diffusers.pipelines.stable_diffusion.pipeline_stable_diffusion_img2img.preprocess
 def _preprocess_image(image: Union[List, PIL.Image.Image, torch.Tensor]):
-    warnings.warn(
-        "The preprocess method is deprecated and will be removed in a future version. Please"
-        " use VaeImageProcessor.preprocess instead",
-        FutureWarning,
-    )
     if isinstance(image, torch.Tensor):
         return image
     elif isinstance(image, PIL.Image.Image):
         image = [image]
 
     if isinstance(image[0], PIL.Image.Image):
-        print('me here')
         w, h = image[0].size
         w, h = (x - x % 8 for x in (w, h))  # resize to integer multiple of 8
 
@@ -77,9 +70,15 @@ def _preprocess_mask(mask: Union[List, PIL.Image.Image, torch.Tensor]):
     return mask
 
 
-class RePaintPipeline(DiffusionPipeline):
+def save_image(torch_image, name):
+    plot_image = (torch_image / 2 + 0.5).clamp(0, 1)
+    plot_image = plot_image.cpu().permute(0, 2, 3, 1).numpy()
+    cv2.imwrite(name, (plot_image[0] * 255).astype(np.uint8)[:, :, ::-1])
+
+
+class RePaintPipelineNew(DiffusionPipeline):
     unet: UNet2DModel
-    scheduler: RePaintScheduler
+    scheduler: RePaintSchedulerNew
 
     def __init__(self, unet, scheduler):
         super().__init__()
@@ -88,6 +87,7 @@ class RePaintPipeline(DiffusionPipeline):
     @torch.no_grad()
     def __call__(
         self,
+        hair_image,
         image: Union[torch.Tensor, PIL.Image.Image],
         mask_image: Union[torch.Tensor, PIL.Image.Image],
         num_inference_steps: int = 250,
@@ -148,25 +148,49 @@ class RePaintPipeline(DiffusionPipeline):
 
         image_shape = original_image.shape
         image = randn_tensor(image_shape, generator=generator, device=self.device, dtype=self.unet.dtype)
-
+        hair_image = _preprocess_image(hair_image)
+        hair_image = hair_image.to(device=self.device, dtype=self.unet.dtype)
+        image = self.scheduler.initial_step(image, hair_image, timestep=50)
+        save_image(image, 'intermediate_results/hair_image.jpg')
+        save_image(original_image, 'intermediate_results/og_image.jpg')
+        
         # set step values
         self.scheduler.set_timesteps(num_inference_steps, jump_length, jump_n_sample, self.device)
         self.scheduler.eta = eta
 
-        t_last = self.scheduler.timesteps[0] + 1
+        t_last = 1000
+        j = 0
         generator = generator[0] if isinstance(generator, list) else generator
         for i, t in enumerate(self.progress_bar(self.scheduler.timesteps)):
-            if t < t_last:
+            if (t < t_last) and (j==0):
                 # predict the noise residual
                 model_output = self.unet(image, t).sample
                 # compute previous image: x_t -> x_t-1
                 image = self.scheduler.step(model_output, t, image, original_image, mask_image, generator).prev_sample
-
+                j = 1
+            elif (t < t_last) and (j==1):
+                model_output = self.unet(image, t).sample
+                # compute previous image: x_t -> x_t-1
+                image = self.scheduler.step(model_output, t, image, original_image, mask_image, generator).pred_original_sample
+            else:
+                # compute the reverse: x_t-1 -> x_t
+                image = self.scheduler.undo_step(image, t_last, generator)
+                j=0
+            t_last = t
+            # plot_image = (image / 2 + 0.5).clamp(0, 1)
+            # plot_image = plot_image.cpu().permute(0, 2, 3, 1).numpy()
+            save_image(image, 'intermediate_results/' + str(i) + '.jpg')
+        t_last = 1000
+        for i, t in enumerate(self.progress_bar(self.scheduler.timesteps[-181:])):
+            if (t < t_last):
+                model_output = self.unet(image, t).sample
+                # compute previous image: x_t -> x_t-1
+                image = self.scheduler.step(model_output, t, image, original_image, mask_image, generator).pred_original_sample
             else:
                 # compute the reverse: x_t-1 -> x_t
                 image = self.scheduler.undo_step(image, t_last, generator)
             t_last = t
-
+            save_image(image, 'intermediate_results/last_' + str(i) + '.jpg')
         image = (image / 2 + 0.5).clamp(0, 1)
         image = image.cpu().permute(0, 2, 3, 1).numpy()
         if output_type == "pil":

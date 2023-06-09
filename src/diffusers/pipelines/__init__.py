@@ -25,6 +25,7 @@ else:
     from .pipeline_utils import AudioPipelineOutput, DiffusionPipeline, ImagePipelineOutput
     from .pndm import PNDMPipeline
     from .repaint import RePaintPipeline
+    from .repaint import RePaintPipelineNew
     from .score_sde_ve import ScoreSdeVePipeline
     from .stochastic_karras_ve import KarrasVePipeline
 

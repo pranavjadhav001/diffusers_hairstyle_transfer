@@ -1,5 +1,5 @@
 # Initially taken from Github's Python gitignore file
-
+shape_predictor_68_face_landmarks.dat
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
