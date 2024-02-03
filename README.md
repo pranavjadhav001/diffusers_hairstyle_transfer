@@ -3,16 +3,6 @@ An attempt to solve hairstyle transfer problem using Diffusion using Diffusers p
 RePaint Paper link : https://arxiv.org/abs/2201.09865
 This Repo has been forked from HuggingFace Diffusers and changes have been in RePaint Pipeline and scheduling scripts<br/>
 
-## Requirements
-- Face Alignment
-- Dlib 
-- Opencv
-- Diffusers
-- Matplotlib
-- Pillow
-- Pytorch
-- Numpy
-
 ## What has changed!
 
 ### Generating random hairstyles for face
@@ -35,9 +25,17 @@ Using Hairstyle_transfer_repaint.ipynb notebook, you can transfer hairstyle tran
 ![alt text](https://github.com/pranavjadhav001/diffusers_hairstyle_transfer/blob/main/images/transition.png?raw=true)
 
 ### Areas to improve
-Even though it works well for the above hair and source image. I've found instances of this approach working.<br/>
+Even though it works well for the above hair and source image. I've found instances of this approach not working well.<br/>
 Reasons i suspect are:
 - Alignment between hair and source image needs to be spot on.
 - skin tone, if there is clear visible distinction the method fails, showing clear boundary between hair and face.
 
-
+## Requirements
+- Face Alignment
+- Dlib 
+- Opencv
+- Diffusers
+- Matplotlib
+- Pillow
+- Pytorch
+- Numpy
